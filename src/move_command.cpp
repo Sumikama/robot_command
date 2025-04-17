@@ -4,21 +4,32 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "smkm_interfaces/msg/gamepad.hpp"
 
+class MoveCommand : public rclcpp::Node
+{
+private:
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_;
+    rclcpp::Subscription<smkm_interfaces::msg::Gamepad>::SharedPtr subscriber_;
+
+public:
+    MoveCommand() : Node("move_command")
+    {
+        publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("move_command", 1);
+        subscriber_ = this->create_subscription<smkm_interfaces::msg::Gamepad>("f310_gamepad", 1, [this](const smkm_interfaces::msg::Gamepad::SharedPtr msg){
+            geometry_msgs::msg::Twist move_command;
+            move_command.linear.x = msg->l_stick_up * 100;
+            // move_command.linear.y = msg.l_stick_left * 100;
+            move_command.angular.z = msg->l_stick_left * 100;
+    
+            publisher_->publish(move_command);
+        });
+    }
+};
+
 int main(int argc, char *argv[]){
     rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("move_command");
-    auto publisher = node->create_publisher<geometry_msgs::msg::Twist>("move_command", 1);
-    geometry_msgs::msg::Twist move_command;
-    auto subscriber = node->create_subscription<smkm_interfaces::msg::Gamepad>("f310_gamepad", 1, [&](const smkm_interfaces::msg::Gamepad& msg){
-        move_command.linear.x = msg.l_stick_up * 100;
-        // move_command.linear.y = msg.l_stick_left * 100;
-        move_command.angular.z = msg.l_stick_left * 100;
-
-        publisher->publish(move_command);
-    });
+    auto node = std::make_shared<MoveCommand>();
 
     rclcpp::spin(node);
-    // node = nullptr;
     rclcpp::shutdown();
     return 0;
 }
